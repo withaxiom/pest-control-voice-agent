@@ -188,23 +188,35 @@ TOOL_HANDLERS = {
 @app.route("/webhook/tools", methods=["POST"])
 def webhook_tools():
     data = request.get_json()
+    print(f"\n=== TOOL CALL PAYLOAD ===\n{json.dumps(data, indent=2)}\n========================\n")
     message = data.get("message", {})
     call_id = message.get("call", {}).get("id")
 
+    # Vapi sends tool calls in message.toolCallList
+    # Each item may use "function.name" instead of "name" directly
+    tool_call_list = message.get("toolCallList", [])
+    if not tool_call_list:
+        # Try alternate payload structure — tool call may be at top level
+        tool_call_list = data.get("toolCallList", [])
+
     results = []
-    for tool_call in message.get("toolCallList", []):
-        handler = TOOL_HANDLERS.get(tool_call["name"])
+    for tool_call in tool_call_list:
+        # Support both flat (name) and nested (function.name) structures
+        tool_name = tool_call.get("name") or tool_call.get("function", {}).get("name")
+        tool_args = tool_call.get("parameters", {}) or tool_call.get("arguments", {}) or tool_call.get("function", {}).get("arguments", {})
+        tool_call_id = tool_call.get("id") or tool_call.get("toolCallId")
+        handler = TOOL_HANDLERS.get(tool_name)
         if handler:
-            if tool_call["name"] == "log_lead":
-                result = handler(tool_call.get("arguments", {}), call_id)
+            if tool_name == "log_lead":
+                result = handler(tool_args, call_id)
             else:
-                result = handler(tool_call.get("arguments", {}))
+                result = handler(tool_args)
         else:
-            result = f"Unknown tool: {tool_call['name']}"
+            result = f"Unknown tool: {tool_name}"
 
         results.append({
-            "toolCallId": tool_call["id"],
-            "name": tool_call["name"],
+            "toolCallId": tool_call_id,
+            "name": tool_name,
             "result": result,
         })
 
