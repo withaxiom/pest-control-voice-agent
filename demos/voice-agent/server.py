@@ -59,11 +59,11 @@ def init_db():
 
 # ─── Tool Handlers ─────────────────────────────────────────────────────────
 
-def handle_log_lead(args, call_id=None):
+def handle_log_lead(args, call_id=None, caller_phone=None):
     db = get_db()
     db.execute(
-        """INSERT INTO leads (caller_name, case_type, case_summary, score, routing, email, zip_code, call_id, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO leads (caller_name, case_type, case_summary, score, routing, email, zip_code, phone, call_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             args.get("caller_name", "Unknown"),
             args.get("case_type"),
@@ -72,6 +72,7 @@ def handle_log_lead(args, call_id=None):
             args.get("routing", "unknown"),
             args.get("email"),
             args.get("zip_code"),
+            caller_phone,
             call_id,
             datetime.now().isoformat(),
         ),
@@ -190,7 +191,9 @@ def webhook_tools():
     data = request.get_json()
     print(f"\n=== TOOL CALL PAYLOAD ===\n{json.dumps(data, indent=2)}\n========================\n")
     message = data.get("message", {})
-    call_id = message.get("call", {}).get("id")
+    call_obj = message.get("call", {})
+    call_id = call_obj.get("id")
+    caller_phone = call_obj.get("customer", {}).get("number")
 
     # Vapi sends tool calls in message.toolCallList
     # Each item may use "function.name" instead of "name" directly
@@ -208,7 +211,7 @@ def webhook_tools():
         handler = TOOL_HANDLERS.get(tool_name)
         if handler:
             if tool_name == "log_lead":
-                result = handler(tool_args, call_id)
+                result = handler(tool_args, call_id, caller_phone)
             else:
                 result = handler(tool_args)
         else:
@@ -344,6 +347,7 @@ DASHBOARD_HTML = """
         <th>Case Type</th>
         <th>Score</th>
         <th>Routing</th>
+        <th>Phone</th>
         <th>Email</th>
         <th>Zip</th>
       </tr>
@@ -364,6 +368,7 @@ DASHBOARD_HTML = """
             {{ lead.routing | upper }}
           </span>
         </td>
+        <td>{{ lead.phone or '—' }}</td>
         <td>{{ lead.email or '—' }}</td>
         <td>{{ lead.zip_code or '—' }}</td>
       </tr>
