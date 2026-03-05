@@ -13,7 +13,7 @@ from functools import wraps
 
 import resend
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, render_template_string, g, redirect, url_for
+from flask import Flask, request, jsonify, render_template_string, g, redirect, url_for, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
@@ -360,6 +360,184 @@ def webhook_vapi():
     return jsonify({"ok": True})
 
 
+# ─── Auth Routes ───────────────────────────────────────────────────────────
+
+LOGIN_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In — Westbrook & Associates</title>
+<style>
+  :root {
+    --dark: #1a1a2e;
+    --gold: #D4AF37;
+    --bg: #f8f9fa;
+    --text: #2D1B2E;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .login-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 400px;
+    padding: 40px 32px;
+  }
+  .login-card h1 {
+    color: var(--dark);
+    font-size: 22px;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .login-card .subtitle {
+    color: #888;
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .login-card .brand {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .login-card .brand span {
+    color: var(--gold);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .google-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    background: var(--dark);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    margin-bottom: 20px;
+  }
+  .google-btn:hover { background: #2a2a4e; }
+  .divider {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+    color: #ccc;
+    font-size: 12px;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .divider span { padding: 0 12px; }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #555;
+  }
+  input[type="email"], input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  input:focus { outline: none; border-color: var(--gold); }
+  .submit-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .submit-btn:hover { background: #c9a230; }
+  .alert {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .alert-error { background: #fdecea; color: #c0392b; }
+  .alert-info { background: #e8f4fd; color: #2471a3; }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="brand"><span>Westbrook & Associates</span></div>
+  <h1>Sign In</h1>
+  <p class="subtitle">Lead Qualification Dashboard</p>
+
+  {% if error %}
+  <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+  {% if message %}
+  <div class="alert alert-info">{{ message }}</div>
+  {% endif %}
+
+  <a href="{{ url_for('google_login') }}" class="google-btn">Sign in with Google</a>
+
+  <div class="divider"><span>or use email</span></div>
+
+  <form method="POST" action="{{ url_for('login') }}">
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" required placeholder="you@westbrooklaw.com">
+
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" required placeholder="Enter your password">
+
+    <button type="submit" class="submit-btn">Sign In</button>
+  </form>
+</div>
+</body>
+</html>
+"""
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        user = User.get_by_email(email)
+        if user and user.password_hash and check_password_hash(user.password_hash, password):
+            login_user(user)
+            next_page = request.args.get("next")
+            return redirect(next_page or url_for("dashboard"))
+        return render_template_string(LOGIN_HTML, error="Invalid email or password.", message=None)
+    message = request.args.get("message")
+    error = request.args.get("error")
+    return render_template_string(LOGIN_HTML, error=error, message=message)
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login", message="You have been signed out."))
+
+
 # ─── Dashboard ─────────────────────────────────────────────────────────────
 
 DASHBOARD_HTML = """
@@ -507,6 +685,7 @@ DASHBOARD_HTML = """
 
 @app.route("/")
 @app.route("/dashboard")
+@login_required
 def dashboard():
     db = get_db()
     leads = db.execute("SELECT * FROM leads ORDER BY created_at DESC").fetchall()
@@ -529,6 +708,7 @@ def dashboard():
 # ─── API ───────────────────────────────────────────────────────────────────
 
 @app.route("/api/leads")
+@login_required
 def api_leads():
     db = get_db()
     leads = db.execute("SELECT * FROM leads ORDER BY created_at DESC").fetchall()
