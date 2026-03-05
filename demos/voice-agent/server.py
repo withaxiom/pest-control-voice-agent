@@ -50,9 +50,39 @@ def init_db():
             zip_code TEXT,
             phone TEXT,
             call_id TEXT,
+            status TEXT NOT NULL DEFAULT 'new',
+            call_duration_seconds INTEGER,
             created_at TEXT NOT NULL
         )
     """)
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            password_hash TEXT,
+            google_id TEXT,
+            role TEXT NOT NULL DEFAULT 'staff',
+            created_at TEXT NOT NULL
+        )
+    """)
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS lead_notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lead_id INTEGER NOT NULL REFERENCES leads(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
+    try:
+        db.execute("ALTER TABLE leads ADD COLUMN status TEXT NOT NULL DEFAULT 'new'")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        db.execute("ALTER TABLE leads ADD COLUMN call_duration_seconds INTEGER")
+    except sqlite3.OperationalError:
+        pass
     db.commit()
     db.close()
 
