@@ -610,16 +610,62 @@ DASHBOARD_HTML = """
   .header h1 { color: var(--gold); font-size: 20px; }
   .header p { color: rgba(255,255,255,0.5); font-size: 13px; }
   .header .stats { display: flex; gap: 24px; }
+  .header nav { display: flex; gap: 16px; align-items: center; }
+  .header nav a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 4px;
+  }
+  .header nav a:hover { background: rgba(255,255,255,0.1); color: white; }
   .stat { text-align: center; }
   .stat-value { color: white; font-size: 24px; font-weight: 700; }
   .stat-label { color: rgba(255,255,255,0.5); font-size: 11px; text-transform: uppercase; }
 
   .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
 
+  .filter-bar {
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .filter-bar input, .filter-bar select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .filter-bar input { flex: 1; min-width: 180px; }
+  .filter-bar input:focus, .filter-bar select:focus { outline: none; border-color: var(--gold); }
+  .filter-btn {
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .filter-btn:hover { background: #c9a230; }
+  .filter-clear {
+    color: #888;
+    font-size: 13px;
+    text-decoration: none;
+  }
+  .filter-clear:hover { color: var(--text); }
+
   table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
   th { background: var(--dark); color: var(--gold); padding: 12px 16px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
   td { padding: 14px 16px; border-bottom: 1px solid #eee; font-size: 14px; }
-  tr:hover { background: #fafafa; }
+  tr.clickable:hover { background: #fafafa; cursor: pointer; }
 
   .badge {
     display: inline-block;
@@ -631,6 +677,20 @@ DASHBOARD_HTML = """
   .badge-qualified { background: #d4edda; color: #155724; }
   .badge-nurture { background: #fff3cd; color: #856404; }
   .badge-redirect { background: #f8d7da; color: #721c24; }
+
+  .badge-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge-status-new { background: #e2e3e5; color: #383d41; }
+  .badge-status-contacted { background: #cce5ff; color: #004085; }
+  .badge-status-consultation_booked { background: #fff3cd; color: #856404; }
+  .badge-status-retained { background: #d4edda; color: #155724; }
+  .badge-status-closed { background: #f8d7da; color: #721c24; }
 
   .score { font-weight: 700; font-size: 16px; }
   .score-high { color: var(--green); }
@@ -666,9 +726,35 @@ DASHBOARD_HTML = """
       <div class="stat-label">Redirected</div>
     </div>
   </div>
-  <button class="refresh" onclick="location.reload()">Refresh</button>
+  <nav>
+    {% if current_user.is_admin %}
+    <a href="{{ url_for('admin_users') }}">Users</a>
+    <a href="#">Costs</a>
+    {% endif %}
+    <a href="{{ url_for('logout') }}">Logout ({{ current_user.name }})</a>
+  </nav>
 </div>
 <div class="container">
+  <form class="filter-bar" method="GET" action="{{ url_for('dashboard') }}">
+    <input type="text" name="q" placeholder="Search name, phone, or email..." value="{{ q or '' }}">
+    <select name="routing">
+      <option value="">All Routing</option>
+      <option value="qualified" {% if routing == 'qualified' %}selected{% endif %}>Qualified</option>
+      <option value="nurture" {% if routing == 'nurture' %}selected{% endif %}>Nurture</option>
+      <option value="redirect" {% if routing == 'redirect' %}selected{% endif %}>Redirect</option>
+    </select>
+    <select name="status">
+      <option value="">All Status</option>
+      <option value="new" {% if status_filter == 'new' %}selected{% endif %}>New</option>
+      <option value="contacted" {% if status_filter == 'contacted' %}selected{% endif %}>Contacted</option>
+      <option value="consultation_booked" {% if status_filter == 'consultation_booked' %}selected{% endif %}>Consultation Booked</option>
+      <option value="retained" {% if status_filter == 'retained' %}selected{% endif %}>Retained</option>
+      <option value="closed" {% if status_filter == 'closed' %}selected{% endif %}>Closed</option>
+    </select>
+    <button type="submit" class="filter-btn">Filter</button>
+    <a href="{{ url_for('dashboard') }}" class="filter-clear">Clear</a>
+  </form>
+
   {% if leads %}
   <table>
     <thead>
@@ -678,6 +764,7 @@ DASHBOARD_HTML = """
         <th>Case Type</th>
         <th>Score</th>
         <th>Routing</th>
+        <th>Status</th>
         <th>Phone</th>
         <th>Email</th>
         <th>Zip</th>
@@ -685,7 +772,7 @@ DASHBOARD_HTML = """
     </thead>
     <tbody>
       {% for lead in leads %}
-      <tr>
+      <tr class="clickable" onclick="location.href='/lead/{{ lead.id }}'">
         <td>{{ lead.created_at[:16] }}</td>
         <td><strong>{{ lead.caller_name }}</strong></td>
         <td>{{ lead.case_type or '—' }}</td>
@@ -697,6 +784,11 @@ DASHBOARD_HTML = """
         <td>
           <span class="badge badge-{{ lead.routing }}">
             {{ lead.routing | upper }}
+          </span>
+        </td>
+        <td>
+          <span class="badge-status badge-status-{{ lead.status }}">
+            {{ lead.status | replace('_', ' ') }}
           </span>
         </td>
         <td>{{ lead.phone or '—' }}</td>
@@ -1045,17 +1137,379 @@ def admin_users_delete():
     return redirect(url_for("admin_users"))
 
 
+LEAD_DETAIL_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ lead.caller_name }} — Westbrook & Associates</title>
+<style>
+  :root {
+    --dark: #1a1a2e;
+    --gold: #D4AF37;
+    --green: #27ae60;
+    --yellow: #f39c12;
+    --red: #e74c3c;
+    --bg: #f8f9fa;
+    --text: #2D1B2E;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+  .header {
+    background: var(--dark);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 { color: var(--gold); font-size: 20px; }
+  .header p { color: rgba(255,255,255,0.5); font-size: 13px; }
+  .header nav { display: flex; gap: 16px; align-items: center; }
+  .header nav a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 4px;
+  }
+  .header nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+
+  .back-link { color: var(--gold); text-decoration: none; font-size: 14px; display: inline-block; margin-bottom: 20px; }
+  .back-link:hover { text-decoration: underline; }
+
+  .lead-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .lead-header h2 { font-size: 28px; color: var(--dark); }
+  .lead-score {
+    font-size: 20px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 8px;
+  }
+  .lead-score-high { color: var(--green); background: #d4edda; }
+  .lead-score-mid { color: var(--yellow); background: #fff3cd; }
+  .lead-score-low { color: var(--red); background: #f8d7da; }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-qualified { background: #d4edda; color: #155724; }
+  .badge-nurture { background: #fff3cd; color: #856404; }
+  .badge-redirect { background: #f8d7da; color: #721c24; }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    background: white;
+    padding: 24px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+  }
+  .info-item label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #888;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .info-item span { font-size: 15px; font-weight: 500; }
+
+  .section {
+    background: white;
+    padding: 24px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+  }
+  .section h3 {
+    font-size: 16px;
+    color: var(--dark);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+  }
+  .section p { font-size: 14px; line-height: 1.6; color: #555; }
+
+  .status-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+  .status-btn {
+    padding: 8px 16px;
+    border: 2px solid #ddd;
+    background: white;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: capitalize;
+  }
+  .status-btn:hover { border-color: var(--gold); }
+  .status-btn.active {
+    background: var(--dark);
+    color: var(--gold);
+    border-color: var(--dark);
+  }
+
+  .note {
+    padding: 14px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .note:last-of-type { border-bottom: none; }
+  .note-meta {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 4px;
+  }
+  .note-meta strong { color: var(--dark); }
+  .note-content { font-size: 14px; line-height: 1.5; }
+
+  .note-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
+  .note-form textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    margin-bottom: 8px;
+  }
+  .note-form textarea:focus { outline: none; border-color: var(--gold); }
+  .note-submit {
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .note-submit:hover { background: #c9a230; }
+
+  .flash {
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  .flash-success { background: #d4edda; color: #155724; }
+  .flash-error { background: #f8d7da; color: #721c24; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>Westbrook & Associates</h1>
+    <p>Lead Detail</p>
+  </div>
+  <nav>
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    {% if current_user.is_admin %}
+    <a href="{{ url_for('admin_users') }}">Users</a>
+    <a href="#">Costs</a>
+    {% endif %}
+    <a href="{{ url_for('logout') }}">Logout</a>
+  </nav>
+</div>
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <a href="{{ url_for('dashboard') }}" class="back-link">&larr; Back to Dashboard</a>
+
+  <div class="lead-header">
+    <h2>{{ lead.caller_name }}</h2>
+    <span class="lead-score {% if lead.score >= 7 %}lead-score-high{% elif lead.score >= 4 %}lead-score-mid{% else %}lead-score-low{% endif %}">
+      {{ lead.score }}/10
+    </span>
+    <span class="badge badge-{{ lead.routing }}">{{ lead.routing | upper }}</span>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-item">
+      <label>Case Type</label>
+      <span>{{ lead.case_type or '—' }}</span>
+    </div>
+    <div class="info-item">
+      <label>Phone</label>
+      <span>{{ lead.phone or '—' }}</span>
+    </div>
+    <div class="info-item">
+      <label>Email</label>
+      <span>{{ lead.email or '—' }}</span>
+    </div>
+    <div class="info-item">
+      <label>Zip Code</label>
+      <span>{{ lead.zip_code or '—' }}</span>
+    </div>
+    <div class="info-item">
+      <label>Date</label>
+      <span>{{ lead.created_at[:16] }}</span>
+    </div>
+    <div class="info-item">
+      <label>Call Duration</label>
+      <span>{% if lead.call_duration_seconds %}{{ lead.call_duration_seconds }}s{% else %}—{% endif %}</span>
+    </div>
+  </div>
+
+  {% if lead.case_summary %}
+  <div class="section">
+    <h3>Case Summary</h3>
+    <p>{{ lead.case_summary }}</p>
+  </div>
+  {% endif %}
+
+  {% if current_user.can_change_status %}
+  <div class="section">
+    <h3>Status</h3>
+    <div class="status-buttons">
+      {% for s in ['new', 'contacted', 'consultation_booked', 'retained', 'closed'] %}
+      <form method="POST" action="{{ url_for('lead_status', lead_id=lead.id) }}" style="display:inline;">
+        <input type="hidden" name="status" value="{{ s }}">
+        <button type="submit" class="status-btn {% if lead.status == s %}active{% endif %}">
+          {{ s | replace('_', ' ') }}
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="section">
+    <h3>Notes</h3>
+    {% if notes %}
+      {% for note in notes %}
+      <div class="note">
+        <div class="note-meta"><strong>{{ note.user_name }}</strong> &mdash; {{ note.created_at[:16] }}</div>
+        <div class="note-content">{{ note.content }}</div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p style="color: #999;">No notes yet.</p>
+    {% endif %}
+
+    <div class="note-form">
+      <form method="POST" action="{{ url_for('lead_add_note', lead_id=lead.id) }}">
+        <textarea name="content" placeholder="Add a note..." required></textarea>
+        <button type="submit" class="note-submit">Add Note</button>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>
+"""
+
+
+@app.route("/lead/<int:lead_id>")
+@login_required
+def lead_detail(lead_id):
+    db = get_db()
+    lead = db.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
+    if not lead:
+        return "Lead not found", 404
+
+    notes = db.execute(
+        """SELECT lead_notes.*, users.name as user_name
+           FROM lead_notes JOIN users ON lead_notes.user_id = users.id
+           WHERE lead_notes.lead_id = ?
+           ORDER BY lead_notes.created_at ASC""",
+        (lead_id,),
+    ).fetchall()
+
+    return render_template_string(LEAD_DETAIL_HTML, lead=lead, notes=notes)
+
+
+@app.route("/lead/<int:lead_id>/status", methods=["POST"])
+@role_required("admin", "attorney")
+def lead_status(lead_id):
+    new_status = request.form.get("status", "")
+    valid_statuses = ("new", "contacted", "consultation_booked", "retained", "closed")
+    if new_status not in valid_statuses:
+        flash("Invalid status.", "error")
+        return redirect(url_for("lead_detail", lead_id=lead_id))
+
+    db = get_db()
+    db.execute("UPDATE leads SET status = ? WHERE id = ?", (new_status, lead_id))
+    db.commit()
+    flash(f"Status updated to {new_status.replace('_', ' ')}.", "success")
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
+@app.route("/lead/<int:lead_id>/note", methods=["POST"])
+@login_required
+def lead_add_note(lead_id):
+    content = request.form.get("content", "").strip()
+    if not content:
+        flash("Note cannot be empty.", "error")
+        return redirect(url_for("lead_detail", lead_id=lead_id))
+
+    db = get_db()
+    lead = db.execute("SELECT id FROM leads WHERE id = ?", (lead_id,)).fetchone()
+    if not lead:
+        return "Lead not found", 404
+
+    db.execute(
+        "INSERT INTO lead_notes (lead_id, user_id, content, created_at) VALUES (?, ?, ?, ?)",
+        (lead_id, current_user.id, content, datetime.now().isoformat()),
+    )
+    db.commit()
+    flash("Note added.", "success")
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
 @app.route("/")
 @app.route("/dashboard")
 @login_required
 def dashboard():
     db = get_db()
-    leads = db.execute("SELECT * FROM leads ORDER BY created_at DESC").fetchall()
 
-    total = len(leads)
-    qualified = sum(1 for l in leads if l["routing"] == "qualified")
-    nurture_count = sum(1 for l in leads if l["routing"] == "nurture")
-    redirect_count = sum(1 for l in leads if l["routing"] == "redirect")
+    q = request.args.get("q", "").strip()
+    routing = request.args.get("routing", "").strip()
+    status_filter = request.args.get("status", "").strip()
+
+    query = "SELECT * FROM leads WHERE 1=1"
+    params = []
+
+    if q:
+        query += " AND (caller_name LIKE ? OR phone LIKE ? OR email LIKE ?)"
+        like_q = f"%{q}%"
+        params.extend([like_q, like_q, like_q])
+    if routing:
+        query += " AND routing = ?"
+        params.append(routing)
+    if status_filter:
+        query += " AND status = ?"
+        params.append(status_filter)
+
+    query += " ORDER BY created_at DESC"
+    leads = db.execute(query, params).fetchall()
+
+    # Stats are always for all leads (unfiltered)
+    all_leads = db.execute("SELECT routing FROM leads").fetchall()
+    total = len(all_leads)
+    qualified = sum(1 for l in all_leads if l["routing"] == "qualified")
+    nurture_count = sum(1 for l in all_leads if l["routing"] == "nurture")
+    redirect_count = sum(1 for l in all_leads if l["routing"] == "redirect")
 
     return render_template_string(
         DASHBOARD_HTML,
@@ -1064,6 +1518,9 @@ def dashboard():
         qualified=qualified,
         nurture=nurture_count,
         redirect=redirect_count,
+        q=q,
+        routing=routing,
+        status_filter=status_filter,
     )
 
 
