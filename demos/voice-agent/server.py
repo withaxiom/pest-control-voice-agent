@@ -201,6 +201,42 @@ def handle_log_lead(args, call_id=None, caller_phone=None):
         ),
     )
     db.commit()
+
+    # Email notification for qualified leads
+    if args.get("routing") == "qualified":
+        notification_email = os.environ.get("NOTIFICATION_EMAIL")
+        if notification_email:
+            try:
+                resend.Emails.send({
+                    "from": "Westbrook & Associates <onboarding@resend.dev>",
+                    "to": [notification_email],
+                    "subject": f"New Qualified Lead: {args.get('caller_name', 'Unknown')} — {(args.get('case_type') or 'Unknown').title()}",
+                    "html": f"""
+                    <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #2D1B2E;">
+                        <div style="background: #1a1a2e; padding: 24px; text-align: center;">
+                            <h1 style="color: #D4AF37; margin: 0; font-size: 24px;">Westbrook & Associates</h1>
+                            <p style="color: rgba(255,255,255,0.6); margin: 4px 0 0;">New Qualified Lead Alert</p>
+                        </div>
+                        <div style="padding: 32px 24px;">
+                            <p><strong>Name:</strong> {args.get('caller_name', 'Unknown')}</p>
+                            <p><strong>Case Type:</strong> {args.get('case_type') or 'Not specified'}</p>
+                            <p><strong>Score:</strong> {args.get('score', 0)}/10</p>
+                            <p><strong>Phone:</strong> {caller_phone or 'Not available'}</p>
+                            <p><strong>Summary:</strong> {args.get('case_summary') or 'No summary provided'}</p>
+                            <div style="text-align: center; margin: 32px 0;">
+                                <a href="{os.environ.get('BASE_URL', 'http://localhost:5002')}/dashboard"
+                                   style="background: #D4AF37; color: #1a1a2e; padding: 14px 32px;
+                                          text-decoration: none; font-weight: bold; border-radius: 4px;">
+                                    View Dashboard
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    """,
+                })
+            except Exception as e:
+                print(f"Failed to send qualified lead notification email: {e}")
+
     return f"Lead {args.get('caller_name')} logged successfully. Score: {args.get('score')}/10, Routing: {args.get('routing')}."
 
 
@@ -807,8 +843,43 @@ DASHBOARD_HTML = """
 </div>
 
 <script>
-  // Auto-refresh every 10 seconds
-  setTimeout(() => location.reload(), 10000);
+  // Notification banner for new qualified leads + auto-refresh
+  (function() {
+    var leads = {{ leads_json | safe }};
+    var lastSeenKey = 'westbrook_last_seen_lead';
+    var lastSeen = parseInt(localStorage.getItem(lastSeenKey) || '0', 10);
+
+    // Find the max lead ID
+    var maxId = 0;
+    for (var i = 0; i < leads.length; i++) {
+      if (leads[i].id > maxId) maxId = leads[i].id;
+    }
+
+    // Check for new qualified leads
+    if (lastSeen > 0) {
+      for (var i = 0; i < leads.length; i++) {
+        var lead = leads[i];
+        if (lead.id > lastSeen && lead.routing === 'qualified') {
+          // Show notification banner
+          var banner = document.createElement('div');
+          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#27ae60;color:white;padding:14px 24px;font-size:15px;font-weight:600;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+          banner.innerHTML = 'New qualified lead: ' + lead.caller_name + ' &mdash; ' + (lead.case_type || 'Unknown') + ' <a href="/lead/' + lead.id + '" style="color:white;text-decoration:underline;margin-left:8px;">(Click to view)</a>';
+          document.body.prepend(banner);
+          // Auto-remove after 15 seconds
+          setTimeout(function() { banner.remove(); }, 15000);
+          break; // Show only the most recent
+        }
+      }
+    }
+
+    // Update last seen to latest ID
+    if (maxId > lastSeen) {
+      localStorage.setItem(lastSeenKey, maxId.toString());
+    }
+
+    // Auto-refresh every 10 seconds
+    setTimeout(function() { location.reload(); }, 10000);
+  })();
 </script>
 </body>
 </html>
@@ -1514,6 +1585,7 @@ def dashboard():
     return render_template_string(
         DASHBOARD_HTML,
         leads=leads,
+        leads_json=json.dumps([dict(l) for l in leads]),
         total=total,
         qualified=qualified,
         nurture=nurture_count,
