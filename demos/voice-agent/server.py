@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template_string, g, redirect, url_for, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from authlib.integrations.flask_client import OAuth
 
 load_dotenv()
 
@@ -25,6 +26,15 @@ app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
+
+oauth = OAuth(app)
+google = oauth.register(
+    name="google",
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
+)
 
 resend.api_key = os.environ.get("RESEND_API_KEY", "")
 
@@ -536,6 +546,36 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for("login", message="You have been signed out."))
+
+
+@app.route("/login/google")
+def google_login():
+    redirect_uri = url_for("google_callback", _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+
+@app.route("/login/google/callback")
+def google_callback():
+    token = google.authorize_access_token()
+    userinfo = token.get("userinfo") or google.userinfo()
+    google_id = userinfo["sub"]
+    email = userinfo["email"]
+
+    # Look up by google_id first, then by email
+    user = User.get_by_google_id(google_id)
+    if not user:
+        user = User.get_by_email(email)
+        if not user:
+            return redirect(url_for("login", error="No account found for this email. Access is invite-only."))
+        # Link google_id to existing user
+        db = sqlite3.connect(DB_PATH)
+        db.execute("UPDATE users SET google_id = ? WHERE id = ?", (google_id, user.id))
+        db.commit()
+        db.close()
+        user = User.get_by_id(user.id)
+
+    login_user(user)
+    return redirect(url_for("dashboard"))
 
 
 # ─── Dashboard ─────────────────────────────────────────────────────────────
