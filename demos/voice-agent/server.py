@@ -348,7 +348,6 @@ TOOL_HANDLERS = {
 @app.route("/webhook/tools", methods=["POST"])
 def webhook_tools():
     data = request.get_json()
-    print(f"\n=== TOOL CALL PAYLOAD ===\n{json.dumps(data, indent=2)}\n========================\n")
     message = data.get("message", {})
     call_obj = message.get("call", {})
     call_id = call_obj.get("id")
