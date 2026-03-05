@@ -723,6 +723,328 @@ DASHBOARD_HTML = """
 """
 
 
+ADMIN_USERS_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Management — Westbrook & Associates</title>
+<style>
+  :root {
+    --dark: #1a1a2e;
+    --gold: #D4AF37;
+    --green: #27ae60;
+    --red: #e74c3c;
+    --bg: #f8f9fa;
+    --text: #2D1B2E;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+  .header {
+    background: var(--dark);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 { color: var(--gold); font-size: 20px; }
+  .header p { color: rgba(255,255,255,0.5); font-size: 13px; }
+  .header nav { display: flex; gap: 16px; align-items: center; }
+  .header nav a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 4px;
+  }
+  .header nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+
+  .container { max-width: 1000px; margin: 0 auto; padding: 24px; }
+
+  .flash {
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  .flash-success { background: #d4edda; color: #155724; }
+  .flash-error { background: #f8d7da; color: #721c24; }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 32px; }
+  th { background: var(--dark); color: var(--gold); padding: 12px 16px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 14px 16px; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: middle; }
+  tr:hover { background: #fafafa; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-admin { background: #d4edda; color: #155724; }
+  .badge-attorney { background: #cce5ff; color: #004085; }
+  .badge-staff { background: #e2e3e5; color: #383d41; }
+
+  select {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .btn-remove {
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-remove:hover { background: #c0392b; }
+
+  .you-label {
+    color: #888;
+    font-size: 12px;
+    font-style: italic;
+  }
+
+  .invite-form {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .invite-form h2 {
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: var(--dark);
+  }
+  .form-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 140px;
+  }
+  .form-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 4px;
+  }
+  .form-group input, .form-group select {
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--gold); }
+  .btn-invite {
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-invite:hover { background: #c9a230; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>Westbrook & Associates</h1>
+    <p>User Management</p>
+  </div>
+  <nav>
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="#">Costs</a>
+    <a href="{{ url_for('logout') }}">Logout</a>
+  </nav>
+</div>
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Joined</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr>
+        <td><strong>{{ user.name }}</strong></td>
+        <td>{{ user.email }}</td>
+        <td><span class="badge badge-{{ user.role }}">{{ user.role | upper }}</span></td>
+        <td>{{ user.created_at[:10] }}</td>
+        <td>
+          {% if user.id == current_user_id %}
+            <span class="you-label">You</span>
+          {% else %}
+            <form method="POST" action="{{ url_for('admin_users_role') }}" style="display:inline;">
+              <input type="hidden" name="user_id" value="{{ user.id }}">
+              <select name="role" onchange="this.form.submit()">
+                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                <option value="attorney" {% if user.role == 'attorney' %}selected{% endif %}>Attorney</option>
+                <option value="staff" {% if user.role == 'staff' %}selected{% endif %}>Staff</option>
+              </select>
+            </form>
+            <form method="POST" action="{{ url_for('admin_users_delete') }}" style="display:inline; margin-left: 8px;" onsubmit="return confirm('Remove this user?');">
+              <input type="hidden" name="user_id" value="{{ user.id }}">
+              <button type="submit" class="btn-remove">Remove</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="invite-form">
+    <h2>Invite New User</h2>
+    <form method="POST" action="{{ url_for('admin_users_invite') }}">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="name">Name</label>
+          <input type="text" id="name" name="name" required placeholder="Full name">
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required placeholder="user@westbrooklaw.com">
+        </div>
+        <div class="form-group">
+          <label for="role">Role</label>
+          <select id="role" name="role">
+            <option value="staff">Staff</option>
+            <option value="attorney">Attorney</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="password">Temporary Password</label>
+          <input type="password" id="password" name="password" required placeholder="Temporary password">
+        </div>
+        <button type="submit" class="btn-invite">Invite</button>
+      </div>
+    </form>
+  </div>
+</div>
+</body>
+</html>
+"""
+
+
+@app.route("/admin/users")
+@role_required("admin")
+def admin_users():
+    db = get_db()
+    users = db.execute("SELECT * FROM users ORDER BY created_at DESC").fetchall()
+    return render_template_string(ADMIN_USERS_HTML, users=users, current_user_id=current_user.id)
+
+
+@app.route("/admin/users/invite", methods=["POST"])
+@role_required("admin")
+def admin_users_invite():
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip()
+    role = request.form.get("role", "staff")
+    password = request.form.get("password", "")
+
+    if not name or not email or not password:
+        flash("All fields are required.", "error")
+        return redirect(url_for("admin_users"))
+
+    if role not in ("admin", "attorney", "staff"):
+        flash("Invalid role.", "error")
+        return redirect(url_for("admin_users"))
+
+    db = get_db()
+    existing = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    if existing:
+        flash(f"A user with email {email} already exists.", "error")
+        return redirect(url_for("admin_users"))
+
+    db.execute(
+        "INSERT INTO users (email, name, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)",
+        (email, name, generate_password_hash(password, method="pbkdf2:sha256"), role, datetime.now().isoformat()),
+    )
+    db.commit()
+    flash(f"User {name} ({email}) invited as {role}.", "success")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/role", methods=["POST"])
+@role_required("admin")
+def admin_users_role():
+    user_id = request.form.get("user_id", type=int)
+    new_role = request.form.get("role", "")
+
+    if new_role not in ("admin", "attorney", "staff"):
+        flash("Invalid role.", "error")
+        return redirect(url_for("admin_users"))
+
+    db = get_db()
+    target = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not target:
+        flash("User not found.", "error")
+        return redirect(url_for("admin_users"))
+
+    # Prevent demoting the last admin
+    if target["role"] == "admin" and new_role != "admin":
+        admin_count = db.execute("SELECT COUNT(*) as cnt FROM users WHERE role = 'admin'").fetchone()["cnt"]
+        if admin_count <= 1:
+            flash("Cannot demote the last admin.", "error")
+            return redirect(url_for("admin_users"))
+
+    db.execute("UPDATE users SET role = ? WHERE id = ?", (new_role, user_id))
+    db.commit()
+    flash(f"Role updated to {new_role} for {target['name']}.", "success")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/delete", methods=["POST"])
+@role_required("admin")
+def admin_users_delete():
+    user_id = request.form.get("user_id", type=int)
+
+    if user_id == current_user.id:
+        flash("You cannot remove yourself.", "error")
+        return redirect(url_for("admin_users"))
+
+    db = get_db()
+    target = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not target:
+        flash("User not found.", "error")
+        return redirect(url_for("admin_users"))
+
+    db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    db.commit()
+    flash(f"User {target['name']} removed.", "success")
+    return redirect(url_for("admin_users"))
+
+
 @app.route("/")
 @app.route("/dashboard")
 @login_required
