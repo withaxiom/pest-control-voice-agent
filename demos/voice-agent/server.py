@@ -4,17 +4,28 @@ Handles Vapi tool calls, stores leads, serves dashboard.
 """
 
 import os
+import sys
 import json
 import sqlite3
+import secrets
 from datetime import datetime, timedelta
+from functools import wraps
 
 import resend
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, render_template_string, g
+from flask import Flask, request, jsonify, render_template_string, g, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
 resend.api_key = os.environ.get("RESEND_API_KEY", "")
 
 DB_PATH = "leads.db"
@@ -34,6 +45,78 @@ def close_db(exc):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+
+
+# ─── User Model ───────────────────────────────────────────────────────────
+
+class User(UserMixin):
+    def __init__(self, id, email, name, password_hash, google_id, role, created_at):
+        self.id = id
+        self.email = email
+        self.name = name
+        self.password_hash = password_hash
+        self.google_id = google_id
+        self.role = role
+        self.created_at = created_at
+
+    @staticmethod
+    def from_row(row):
+        if row is None:
+            return None
+        return User(
+            id=row["id"], email=row["email"], name=row["name"],
+            password_hash=row["password_hash"], google_id=row["google_id"],
+            role=row["role"], created_at=row["created_at"],
+        )
+
+    @staticmethod
+    def get_by_id(user_id):
+        db = sqlite3.connect(DB_PATH)
+        db.row_factory = sqlite3.Row
+        row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        db.close()
+        return User.from_row(row)
+
+    @staticmethod
+    def get_by_email(email):
+        db = sqlite3.connect(DB_PATH)
+        db.row_factory = sqlite3.Row
+        row = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        db.close()
+        return User.from_row(row)
+
+    @staticmethod
+    def get_by_google_id(google_id):
+        db = sqlite3.connect(DB_PATH)
+        db.row_factory = sqlite3.Row
+        row = db.execute("SELECT * FROM users WHERE google_id = ?", (google_id,)).fetchone()
+        db.close()
+        return User.from_row(row)
+
+    @property
+    def is_admin(self):
+        return self.role == "admin"
+
+    @property
+    def can_change_status(self):
+        return self.role in ("admin", "attorney")
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get_by_id(int(user_id))
+
+
+def role_required(*roles):
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def decorated(*args, **kwargs):
+            if current_user.role not in roles:
+                return "Forbidden", 403
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
 
 
 def init_db():
@@ -452,13 +535,41 @@ def api_leads():
     return jsonify([dict(l) for l in leads])
 
 
+# ─── CLI ───────────────────────────────────────────────────────────────────
+
+def create_admin_user():
+    email = input("Admin email: ").strip()
+    name = input("Admin name: ").strip()
+    password = input("Admin password: ").strip()
+    if not email or not name or not password:
+        print("All fields required.")
+        return
+    db = sqlite3.connect(DB_PATH)
+    db.row_factory = sqlite3.Row
+    existing = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    if existing:
+        print(f"User {email} already exists.")
+        db.close()
+        return
+    db.execute(
+        "INSERT INTO users (email, name, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)",
+        (email, name, generate_password_hash(password, method="pbkdf2:sha256"), "admin", datetime.now().isoformat()),
+    )
+    db.commit()
+    db.close()
+    print(f"Admin user '{name}' ({email}) created.")
+
+
 # ─── Main ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     init_db()
-    print("=" * 60)
-    print("  Westbrook & Associates — Voice Agent Webhook Server")
-    print("  Dashboard: http://localhost:5002")
-    print("  Webhook:   http://localhost:5002/webhook/tools")
-    print("=" * 60)
-    app.run(debug=True, port=5002)
+    if len(sys.argv) > 1 and sys.argv[1] == "create-admin":
+        create_admin_user()
+    else:
+        print("=" * 60)
+        print("  Westbrook & Associates — Voice Agent Webhook Server")
+        print("  Dashboard: http://localhost:5002")
+        print("  Webhook:   http://localhost:5002/webhook/tools")
+        print("=" * 60)
+        app.run(debug=True, port=5002)
