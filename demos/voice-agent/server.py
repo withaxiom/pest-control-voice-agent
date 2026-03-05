@@ -399,6 +399,17 @@ def webhook_vapi():
             print(f"Transcript preview: {transcript[:200]}...")
         print(f"{'='*50}\n")
 
+        # Store call duration
+        duration = message.get("durationSeconds")
+        call_id = message.get("call", {}).get("id")
+        if duration and call_id:
+            db = get_db()
+            db.execute(
+                "UPDATE leads SET call_duration_seconds = ? WHERE call_id = ?",
+                (duration, call_id),
+            )
+            db.commit()
+
     elif event_type == "status-update":
         status = message.get("status")
         print(f"Call status: {status}")
@@ -765,7 +776,7 @@ DASHBOARD_HTML = """
   <nav>
     {% if current_user.is_admin %}
     <a href="{{ url_for('admin_users') }}">Users</a>
-    <a href="#">Costs</a>
+    <a href="{{ url_for('admin_costs') }}">Costs</a>
     {% endif %}
     <a href="{{ url_for('logout') }}">Logout ({{ current_user.name }})</a>
   </nav>
@@ -1034,7 +1045,7 @@ ADMIN_USERS_HTML = """
   </div>
   <nav>
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
-    <a href="#">Costs</a>
+    <a href="{{ url_for('admin_costs') }}">Costs</a>
     <a href="{{ url_for('logout') }}">Logout</a>
   </nav>
 </div>
@@ -1206,6 +1217,221 @@ def admin_users_delete():
     db.commit()
     flash(f"User {target['name']} removed.", "success")
     return redirect(url_for("admin_users"))
+
+
+COSTS_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cost Analysis — Westbrook & Associates</title>
+<style>
+  :root {
+    --dark: #1a1a2e;
+    --gold: #D4AF37;
+    --green: #27ae60;
+    --yellow: #f39c12;
+    --red: #e74c3c;
+    --bg: #f8f9fa;
+    --text: #2D1B2E;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+  .header {
+    background: var(--dark);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 { color: var(--gold); font-size: 20px; }
+  .header p { color: rgba(255,255,255,0.5); font-size: 13px; }
+  .header nav { display: flex; gap: 16px; align-items: center; }
+  .header nav a {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 4px;
+  }
+  .header nav a:hover { background: rgba(255,255,255,0.1); color: white; }
+
+  .container { max-width: 1000px; margin: 0 auto; padding: 24px; }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    text-align: center;
+  }
+  .card-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 4px;
+  }
+  .card-value.gold { color: var(--gold); }
+  .card-value.green { color: var(--green); }
+  .card-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    font-weight: 600;
+  }
+
+  .section {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+  }
+  .section h3 {
+    font-size: 16px;
+    color: var(--dark);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .pricing-table { width: 100%; border-collapse: collapse; }
+  .pricing-table th {
+    background: var(--dark);
+    color: var(--gold);
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .pricing-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+  }
+  .pricing-table tr:last-child td { border-bottom: none; }
+  .pricing-table .cost { font-weight: 600; color: var(--dark); }
+  .month-label { font-size: 14px; color: #888; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>Westbrook & Associates</h1>
+    <p>Cost Analysis</p>
+  </div>
+  <nav>
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_users') }}">Users</a>
+    <a href="{{ url_for('logout') }}">Logout</a>
+  </nav>
+</div>
+<div class="container">
+  <p class="month-label">Showing data for {{ month_label }}</p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-value">{{ total_calls }}</div>
+      <div class="card-label">Total Calls (This Month)</div>
+    </div>
+    <div class="card">
+      <div class="card-value">{{ total_minutes }}</div>
+      <div class="card-label">Total Minutes</div>
+    </div>
+    <div class="card">
+      <div class="card-value gold">${{ '%.2f' | format(vapi_cost) }}</div>
+      <div class="card-label">Est. Vapi Cost (@$0.05/min)</div>
+    </div>
+    <div class="card">
+      <div class="card-value green">{{ emails_sent }}</div>
+      <div class="card-label">Emails Sent</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Pricing Reference</h3>
+    <table class="pricing-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Cost</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Vapi</td>
+          <td class="cost">~$0.05/min</td>
+          <td>Per-minute voice AI usage</td>
+        </tr>
+        <tr>
+          <td>Resend</td>
+          <td class="cost">Free up to 3,000/mo</td>
+          <td>Transactional email delivery</td>
+        </tr>
+        <tr>
+          <td>Phone Number</td>
+          <td class="cost">~$2/mo</td>
+          <td>Dedicated Vapi phone number</td>
+        </tr>
+        <tr>
+          <td>ngrok</td>
+          <td class="cost">Free or $8/mo</td>
+          <td>Tunnel for local webhook development</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>
+"""
+
+
+@app.route("/admin/costs")
+@role_required("admin")
+def admin_costs():
+    db = get_db()
+    now = datetime.now()
+    month_start = now.strftime("%Y-%m-01")
+    month_label = now.strftime("%B %Y")
+
+    # Current month stats
+    stats = db.execute(
+        "SELECT COUNT(*) as cnt, COALESCE(SUM(call_duration_seconds), 0) as total_seconds FROM leads WHERE created_at >= ?",
+        (month_start,),
+    ).fetchone()
+
+    total_calls = stats["cnt"]
+    total_seconds = stats["total_seconds"]
+    total_minutes = round(total_seconds / 60, 1) if total_seconds else 0
+    vapi_cost = total_minutes * 0.05
+
+    # Estimate emails sent: nurture emails + qualified notification emails
+    email_stats = db.execute(
+        "SELECT COUNT(*) as cnt FROM leads WHERE created_at >= ? AND routing IN ('nurture', 'qualified')",
+        (month_start,),
+    ).fetchone()
+    emails_sent = email_stats["cnt"]
+
+    return render_template_string(
+        COSTS_HTML,
+        total_calls=total_calls,
+        total_minutes=total_minutes,
+        vapi_cost=vapi_cost,
+        emails_sent=emails_sent,
+        month_label=month_label,
+    )
 
 
 LEAD_DETAIL_HTML = """
@@ -1393,7 +1619,7 @@ LEAD_DETAIL_HTML = """
     <a href="{{ url_for('dashboard') }}">Dashboard</a>
     {% if current_user.is_admin %}
     <a href="{{ url_for('admin_users') }}">Users</a>
-    <a href="#">Costs</a>
+    <a href="{{ url_for('admin_costs') }}">Costs</a>
     {% endif %}
     <a href="{{ url_for('logout') }}">Logout</a>
   </nav>
