@@ -29,3 +29,15 @@ Start with:
 This repo is intentionally minimal: it’s a **proof-of-capability** demo and a base for client builds.
 
 Built by **AXIOM Collective** (EN/ES AI automation).
+
+## How to Sell This (AXIOM Notes)
+
+**Who it’s for:** firms that miss calls after-hours (or during busy hours) and lose consults.
+
+**Core promise:** “Answer every call, qualify every lead, route the right ones — 24/7.”
+
+**Proof path:**
+- Demo talk track: `demos/README.md`
+- Runnable demo: `demos/voice-agent/`
+
+**Next obvious upgrade:** bilingual EN/ES qualification flow.
