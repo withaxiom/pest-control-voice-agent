@@ -1,5 +1,5 @@
 """
-Westbrook & Associates — Voice Agent Webhook Server
+Green Shield Pest Control — Voice Agent Webhook Server
 Handles Vapi tool calls, stores leads, serves dashboard.
 """
 
@@ -208,24 +208,24 @@ def handle_log_lead(args, call_id=None, caller_phone=None):
         if notification_email:
             try:
                 resend.Emails.send({
-                    "from": "Westbrook & Associates <onboarding@resend.dev>",
+                    "from": "Green Shield Pest Control <onboarding@resend.dev>",
                     "to": [notification_email],
-                    "subject": f"New Qualified Lead: {args.get('caller_name', 'Unknown')} — {(args.get('case_type') or 'Unknown').title()}",
+                    "subject": f"New Hot Lead: {args.get('caller_name', 'Unknown')} — {(args.get('case_type') or 'Unknown').title()}",
                     "html": f"""
-                    <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #2D1B2E;">
-                        <div style="background: #1a1a2e; padding: 24px; text-align: center;">
-                            <h1 style="color: #D4AF37; margin: 0; font-size: 24px;">Westbrook & Associates</h1>
-                            <p style="color: rgba(255,255,255,0.6); margin: 4px 0 0;">New Qualified Lead Alert</p>
+                    <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1a2e1a;">
+                        <div style="background: #0d1f12; padding: 24px; text-align: center;">
+                            <h1 style="color: #00D26A; margin: 0; font-size: 24px;">Green Shield Pest Control</h1>
+                            <p style="color: rgba(255,255,255,0.6); margin: 4px 0 0;">New Hot Lead Alert — Inspection Ready</p>
                         </div>
                         <div style="padding: 32px 24px;">
                             <p><strong>Name:</strong> {args.get('caller_name', 'Unknown')}</p>
-                            <p><strong>Case Type:</strong> {args.get('case_type') or 'Not specified'}</p>
+                            <p><strong>Pest Type:</strong> {args.get('case_type') or 'Not specified'}</p>
                             <p><strong>Score:</strong> {args.get('score', 0)}/10</p>
                             <p><strong>Phone:</strong> {caller_phone or 'Not available'}</p>
                             <p><strong>Summary:</strong> {args.get('case_summary') or 'No summary provided'}</p>
                             <div style="text-align: center; margin: 32px 0;">
                                 <a href="{os.environ.get('BASE_URL', 'http://localhost:5002')}/dashboard"
-                                   style="background: #D4AF37; color: #1a1a2e; padding: 14px 32px;
+                                   style="background: #00D26A; color: #0d1f12; padding: 14px 32px;
                                           text-decoration: none; font-weight: bold; border-radius: 4px;">
                                     View Dashboard
                                 </a>
@@ -249,78 +249,79 @@ def handle_check_availability(args):
         if day.weekday() < 5:  # Mon-Fri
             slots.append({
                 "date": day.strftime("%A, %B %d"),
-                "times": ["10:00 AM", "2:00 PM"],
-                "attorney": "Attorney Reynolds" if count == 0 else "Attorney Kim",
+                "times": ["9:00 AM", "1:00 PM", "4:00 PM"],
+                "technician": "Technician Martinez" if count == 0 else "Technician Johnson",
             })
             count += 1
         day += timedelta(days=1)
 
     return json.dumps({
         "available_slots": slots,
-        "note": "Consultations are 30 minutes. Free for first-time clients.",
+        "note": "Inspections are free. Same-day service available for emergencies.",
     })
 
 
 def handle_send_nurture_email(args):
     name = args.get("name", "there")
     email = args.get("email")
-    case_type = args.get("case_type", "your legal matter")
+    case_type = args.get("case_type", "your pest concern")
 
     if not email:
         return "Error: no email address provided."
 
     html = f"""
-    <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #2D1B2E;">
-        <div style="background: #1a1a2e; padding: 24px; text-align: center;">
-            <h1 style="color: #D4AF37; margin: 0; font-size: 24px;">Westbrook & Associates</h1>
-            <p style="color: rgba(255,255,255,0.6); margin: 4px 0 0;">Attorneys at Law</p>
+    <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1a2e1a;">
+        <div style="background: #0d1f12; padding: 24px; text-align: center;">
+            <h1 style="color: #00D26A; margin: 0; font-size: 24px;">Green Shield Pest Control</h1>
+            <p style="color: rgba(255,255,255,0.6); margin: 4px 0 0;">Protecting Texas Homes Since 2015</p>
         </div>
 
         <div style="padding: 32px 24px;">
             <p>Dear {name},</p>
 
-            <p>Thank you for reaching out to us regarding {case_type}. We understand this can be
-            a stressful time, and we appreciate your trust in contacting our firm.</p>
+            <p>Thank you for reaching out to Green Shield Pest Control about {case_type}.
+            We understand pest problems can be stressful, and we appreciate you contacting us.</p>
 
-            <p>As promised, here are some resources that may be helpful:</p>
+            <p>Here are some tips to help while you're deciding on next steps:</p>
 
             <ul style="line-height: 1.8;">
-                <li><strong>Know Your Rights</strong> — A guide to understanding your legal options</li>
-                <li><strong>What to Expect</strong> — How the legal process works, step by step</li>
-                <li><strong>Document Checklist</strong> — What to gather before your consultation</li>
+                <li><strong>Seal Entry Points</strong> — Caulk cracks around doors, windows, and pipes where pests enter</li>
+                <li><strong>Eliminate Food & Moisture Sources</strong> — Fix leaky pipes, store food in sealed containers, empty trash regularly</li>
+                <li><strong>Reduce Clutter</strong> — Pests love dark, undisturbed spaces — clear out garages and storage areas</li>
+                <li><strong>Outdoor Maintenance</strong> — Trim vegetation away from the house and remove standing water</li>
             </ul>
 
-            <p>When you're ready, we'd love to schedule a free 30-minute consultation to discuss
-            your situation in detail.</p>
+            <p>When you're ready for a professional assessment, our inspections are <strong>100% free</strong>
+            and we offer same-day service for urgent situations.</p>
 
             <div style="text-align: center; margin: 32px 0;">
-                <a href="https://westbrookassociates.com/book"
-                   style="background: #D4AF37; color: #1a1a2e; padding: 14px 32px;
+                <a href="https://greenshieldpest.com/book"
+                   style="background: #00D26A; color: #0d1f12; padding: 14px 32px;
                           text-decoration: none; font-weight: bold; border-radius: 4px;">
-                    Book a Free Consultation
+                    Book a Free Inspection
                 </a>
             </div>
 
             <p>Warm regards,<br>
-            <strong>The Westbrook & Associates Team</strong><br>
-            <span style="color: #888;">Eagle Pass, Texas</span></p>
+            <strong>The Green Shield Pest Control Team</strong><br>
+            <span style="color: #888;">Texas</span></p>
         </div>
 
         <div style="background: #f5f5f5; padding: 16px; text-align: center; font-size: 12px; color: #888;">
-            Westbrook & Associates | Eagle Pass, TX<br>
-            This email is not legal advice.
+            Green Shield Pest Control | Texas<br>
+            Licensed &amp; family-safe treatments.
         </div>
     </div>
     """
 
     try:
         resend.Emails.send({
-            "from": "Westbrook & Associates <onboarding@resend.dev>",
+            "from": "Green Shield Pest Control <onboarding@resend.dev>",
             "to": [email],
-            "subject": f"Resources from Westbrook & Associates — {case_type.title()}",
+            "subject": f"Your Free Quote &amp; Pest Tips — Green Shield Pest Control",
             "html": html,
         })
-        return f"Nurture email sent to {email} successfully."
+        return f"Quote email sent to {email} successfully."
     except Exception as e:
         return f"Email failed: {str(e)}"
 
@@ -330,7 +331,7 @@ def handle_transfer_call(args):
         "destination": {
             "type": "number",
             "number": "+18305555555",
-            "message": "Transferring you to our reception desk now.",
+            "message": "Connecting you with a Green Shield specialist right now.",
         }
     })
 
@@ -424,13 +425,13 @@ LOGIN_HTML = """
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sign In — Westbrook & Associates</title>
+<title>Sign In — Green Shield Pest Control</title>
 <style>
   :root {
-    --dark: #1a1a2e;
-    --gold: #D4AF37;
+    --dark: #0d1f12;
+    --gold: #00D26A;
     --bg: #f8f9fa;
-    --text: #2D1B2E;
+    --text: #1a2e1a;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -487,7 +488,7 @@ LOGIN_HTML = """
     text-decoration: none;
     margin-bottom: 20px;
   }
-  .google-btn:hover { background: #2a2a4e; }
+  .google-btn:hover { background: #1a3a1a; }
   .divider {
     display: flex;
     align-items: center;
@@ -528,7 +529,7 @@ LOGIN_HTML = """
     font-weight: 700;
     cursor: pointer;
   }
-  .submit-btn:hover { background: #c9a230; }
+  .submit-btn:hover { background: #00b85a; }
   .alert {
     padding: 10px 14px;
     border-radius: 6px;
@@ -541,9 +542,9 @@ LOGIN_HTML = """
 </head>
 <body>
 <div class="login-card">
-  <div class="brand"><span>Westbrook & Associates</span></div>
+  <div class="brand"><span>Green Shield Pest Control</span></div>
   <h1>Sign In</h1>
-  <p class="subtitle">Lead Qualification Dashboard</p>
+  <p class="subtitle">AI Receptionist Dashboard</p>
 
   {% if error %}
   <div class="alert alert-error">{{ error }}</div>
@@ -558,7 +559,7 @@ LOGIN_HTML = """
 
   <form method="POST" action="{{ url_for('login') }}">
     <label for="email">Email</label>
-    <input type="email" id="email" name="email" required placeholder="you@westbrooklaw.com">
+    <input type="email" id="email" name="email" required placeholder="you@greenshieldpest.com">
 
     <label for="password">Password</label>
     <input type="password" id="password" name="password" required placeholder="Enter your password">
@@ -632,11 +633,11 @@ DASHBOARD_HTML = """
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Westbrook & Associates — Lead Dashboard</title>
+<title>Green Shield Pest Control — AI Receptionist Dashboard</title>
 <style>
   :root {
-    --dark: #1a1a2e;
-    --gold: #D4AF37;
+    --dark: #0d1f12;
+    --gold: #00D26A;
     --green: #27ae60;
     --yellow: #f39c12;
     --red: #e74c3c;
@@ -700,7 +701,7 @@ DASHBOARD_HTML = """
     font-weight: 700;
     cursor: pointer;
   }
-  .filter-btn:hover { background: #c9a230; }
+  .filter-btn:hover { background: #00b85a; }
   .filter-clear {
     color: #888;
     font-size: 13px;
@@ -734,8 +735,8 @@ DASHBOARD_HTML = """
   }
   .badge-status-new { background: #e2e3e5; color: #383d41; }
   .badge-status-contacted { background: #cce5ff; color: #004085; }
-  .badge-status-consultation_booked { background: #fff3cd; color: #856404; }
-  .badge-status-retained { background: #d4edda; color: #155724; }
+  .badge-status-inspection_booked { background: #fff3cd; color: #856404; }
+  .badge-status-scheduled { background: #d4edda; color: #155724; }
   .badge-status-closed { background: #f8d7da; color: #721c24; }
 
   .score { font-weight: 700; font-size: 16px; }
@@ -751,8 +752,8 @@ DASHBOARD_HTML = """
 <body>
 <div class="header">
   <div>
-    <h1>Westbrook & Associates</h1>
-    <p>Lead Qualification Dashboard</p>
+    <h1>Green Shield Pest Control</h1>
+    <p>AI Receptionist Dashboard</p>
   </div>
   <div class="stats">
     <div class="stat">
@@ -793,8 +794,8 @@ DASHBOARD_HTML = """
       <option value="">All Status</option>
       <option value="new" {% if status_filter == 'new' %}selected{% endif %}>New</option>
       <option value="contacted" {% if status_filter == 'contacted' %}selected{% endif %}>Contacted</option>
-      <option value="consultation_booked" {% if status_filter == 'consultation_booked' %}selected{% endif %}>Consultation Booked</option>
-      <option value="retained" {% if status_filter == 'retained' %}selected{% endif %}>Retained</option>
+      <option value="inspection_booked" {% if status_filter == 'inspection_booked' %}selected{% endif %}>Inspection Booked</option>
+      <option value="scheduled" {% if status_filter == 'scheduled' %}selected{% endif %}>Scheduled</option>
       <option value="closed" {% if status_filter == 'closed' %}selected{% endif %}>Closed</option>
     </select>
     <button type="submit" class="filter-btn">Filter</button>
@@ -807,7 +808,7 @@ DASHBOARD_HTML = """
       <tr>
         <th>Time</th>
         <th>Name</th>
-        <th>Case Type</th>
+        <th>Pest Type</th>
         <th>Score</th>
         <th>Routing</th>
         <th>Status</th>
@@ -856,7 +857,7 @@ DASHBOARD_HTML = """
   // Notification banner for new qualified leads + auto-refresh
   (function() {
     var leads = {{ leads_json | safe }};
-    var lastSeenKey = 'westbrook_last_seen_lead';
+    var lastSeenKey = 'greenshield_last_seen_lead';
     var lastSeen = parseInt(localStorage.getItem(lastSeenKey) || '0', 10);
 
     // Find the max lead ID
@@ -872,8 +873,8 @@ DASHBOARD_HTML = """
         if (lead.id > lastSeen && lead.routing === 'qualified') {
           // Show notification banner
           var banner = document.createElement('div');
-          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#27ae60;color:white;padding:14px 24px;font-size:15px;font-weight:600;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
-          banner.innerHTML = 'New qualified lead: ' + lead.caller_name + ' &mdash; ' + (lead.case_type || 'Unknown') + ' <a href="/lead/' + lead.id + '" style="color:white;text-decoration:underline;margin-left:8px;">(Click to view)</a>';
+          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#00D26A;color:#0d1f12;padding:14px 24px;font-size:15px;font-weight:600;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+          banner.innerHTML = 'New hot lead: ' + lead.caller_name + ' &mdash; ' + (lead.case_type || 'Unknown') + ' <a href="/lead/' + lead.id + '" style="color:#0d1f12;text-decoration:underline;margin-left:8px;">(Click to view)</a>';
           document.body.prepend(banner);
           // Auto-remove after 15 seconds
           setTimeout(function() { banner.remove(); }, 15000);
@@ -902,15 +903,15 @@ ADMIN_USERS_HTML = """
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>User Management — Westbrook & Associates</title>
+<title>User Management — Green Shield Pest Control</title>
 <style>
   :root {
-    --dark: #1a1a2e;
-    --gold: #D4AF37;
+    --dark: #0d1f12;
+    --gold: #00D26A;
     --green: #27ae60;
     --red: #e74c3c;
     --bg: #f8f9fa;
-    --text: #2D1B2E;
+    --text: #1a2e1a;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
@@ -1033,13 +1034,13 @@ ADMIN_USERS_HTML = """
     cursor: pointer;
     white-space: nowrap;
   }
-  .btn-invite:hover { background: #c9a230; }
+  .btn-invite:hover { background: #00b85a; }
 </style>
 </head>
 <body>
 <div class="header">
   <div>
-    <h1>Westbrook & Associates</h1>
+    <h1>Green Shield Pest Control</h1>
     <p>User Management</p>
   </div>
   <nav>
@@ -1224,16 +1225,16 @@ COSTS_HTML = """
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cost Analysis — Westbrook & Associates</title>
+<title>Cost Analysis — Green Shield Pest Control</title>
 <style>
   :root {
-    --dark: #1a1a2e;
-    --gold: #D4AF37;
+    --dark: #0d1f12;
+    --gold: #00D26A;
     --green: #27ae60;
     --yellow: #f39c12;
     --red: #e74c3c;
     --bg: #f8f9fa;
-    --text: #2D1B2E;
+    --text: #1a2e1a;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
@@ -1326,7 +1327,7 @@ COSTS_HTML = """
 <body>
 <div class="header">
   <div>
-    <h1>Westbrook & Associates</h1>
+    <h1>Green Shield Pest Control</h1>
     <p>Cost Analysis</p>
   </div>
   <nav>
@@ -1439,11 +1440,11 @@ LEAD_DETAIL_HTML = """
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{ lead.caller_name }} — Westbrook & Associates</title>
+<title>{{ lead.caller_name }} — Green Shield Pest Control</title>
 <style>
   :root {
-    --dark: #1a1a2e;
-    --gold: #D4AF37;
+    --dark: #0d1f12;
+    --gold: #00D26A;
     --green: #27ae60;
     --yellow: #f39c12;
     --red: #e74c3c;
@@ -1596,7 +1597,7 @@ LEAD_DETAIL_HTML = """
     font-weight: 700;
     cursor: pointer;
   }
-  .note-submit:hover { background: #c9a230; }
+  .note-submit:hover { background: #00b85a; }
 
   .flash {
     padding: 12px 16px;
@@ -1611,7 +1612,7 @@ LEAD_DETAIL_HTML = """
 <body>
 <div class="header">
   <div>
-    <h1>Westbrook & Associates</h1>
+    <h1>Green Shield Pest Control</h1>
     <p>Lead Detail</p>
   </div>
   <nav>
@@ -1642,7 +1643,7 @@ LEAD_DETAIL_HTML = """
 
   <div class="info-grid">
     <div class="info-item">
-      <label>Case Type</label>
+      <label>Pest Type</label>
       <span>{{ lead.case_type or '—' }}</span>
     </div>
     <div class="info-item">
@@ -1669,7 +1670,7 @@ LEAD_DETAIL_HTML = """
 
   {% if lead.case_summary %}
   <div class="section">
-    <h3>Case Summary</h3>
+    <h3>Problem Description</h3>
     <p>{{ lead.case_summary }}</p>
   </div>
   {% endif %}
@@ -1678,7 +1679,7 @@ LEAD_DETAIL_HTML = """
   <div class="section">
     <h3>Status</h3>
     <div class="status-buttons">
-      {% for s in ['new', 'contacted', 'consultation_booked', 'retained', 'closed'] %}
+      {% for s in ['new', 'contacted', 'inspection_booked', 'scheduled', 'closed'] %}
       <form method="POST" action="{{ url_for('lead_status', lead_id=lead.id) }}" style="display:inline;">
         <input type="hidden" name="status" value="{{ s }}">
         <button type="submit" class="status-btn {% if lead.status == s %}active{% endif %}">
@@ -1739,7 +1740,7 @@ def lead_detail(lead_id):
 @role_required("admin", "attorney")
 def lead_status(lead_id):
     new_status = request.form.get("status", "")
-    valid_statuses = ("new", "contacted", "consultation_booked", "retained", "closed")
+    valid_statuses = ("new", "contacted", "inspection_booked", "scheduled", "closed")
     if new_status not in valid_statuses:
         flash("Invalid status.", "error")
         return redirect(url_for("lead_detail", lead_id=lead_id))
@@ -1864,7 +1865,7 @@ if __name__ == "__main__":
         create_admin_user()
     else:
         print("=" * 60)
-        print("  Westbrook & Associates — Voice Agent Webhook Server")
+        print("  Green Shield Pest Control — AI Receptionist Webhook Server")
         print("  Dashboard: http://localhost:5002")
         print("  Webhook:   http://localhost:5002/webhook/tools")
         print("=" * 60)

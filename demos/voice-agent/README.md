@@ -1,29 +1,34 @@
-# Westbrook & Associates — AI Voice Agent
+# Green Shield Pest Control — AI Receptionist
 
-An AI-powered phone receptionist that qualifies law firm leads via voice calls. Built with Vapi.ai, Claude Sonnet, ElevenLabs, and Deepgram.
+An AI-powered phone receptionist that qualifies pest control leads via voice calls. **Built by AXIOM Collective.**
 
-**Alex**, the AI receptionist, answers inbound calls 24/7, asks qualifying questions, scores leads on a 0–10 scale, and routes them accordingly — booking consultations for hot leads, sending nurture emails for warm leads, and redirecting cold leads to appropriate resources.
+**Maria**, the bilingual AI receptionist, answers inbound calls 24/7 in English and Spanish. She identifies the pest problem, scores urgency, qualifies the lead on a 0–10 scale, and routes them — booking free inspections for hot leads, sending quotes for warm leads, and providing prevention tips for cool leads.
+
+## Bilingual (EN/ES)
+
+Maria detects the caller's language automatically and switches seamlessly between English and Spanish — no prompting needed. She uses natural South Texas / Mexican Spanish register, making callers feel at home.
 
 ## How It Works
 
 ```
-Caller dials phone number
+Customer calls phone number
         ↓
    Vapi.ai handles the call
    (ElevenLabs voice + Deepgram transcription + Claude Sonnet brain)
         ↓
-   Alex asks 5 qualifying questions
+   Maria asks 5 qualifying questions
+   (bilingual — detects EN/ES automatically)
         ↓
    Scores the lead (0–10)
         ↓
    ┌─────────────┬──────────────┬──────────────┐
    │ Score 7–10  │  Score 4–6   │  Score 1–3   │
-   │  QUALIFIED  │   NURTURE    │   REDIRECT   │
+   │  HOT LEAD   │  WARM LEAD   │  COOL LEAD   │
    │             │              │              │
-   │ Books a     │ Captures     │ Refers to    │
-   │ consultation│ email, sends │ Legal Aid,   │
-   │ appointment │ resources    │ State Bar,   │
-   │             │              │ Small Claims │
+   │ Books free  │ Captures     │ Provides     │
+   │ inspection  │ info, sends  │ pest         │
+   │ (same-day   │ quote via    │ prevention   │
+   │ for urgency)│ email        │ tips         │
    └─────────────┴──────────────┴──────────────┘
         ↓
    Lead logged to SQLite → visible on web dashboard
@@ -33,11 +38,11 @@ Caller dials phone number
 
 | # | Question | Max Points |
 |---|----------|-----------|
-| 1 | Type of legal matter | 2 pts |
-| 2 | Timeline / urgency | 2 pts |
-| 3 | Competition check (other attorneys consulted) | 2 pts |
-| 4 | Intent signal (readiness to proceed) | 2 pts |
-| 5 | Jurisdiction / zip code | 2 pts |
+| 1 | Type of pest (termites/rodents = high, general bugs = medium) | 2 pts |
+| 2 | Urgency — active infestation/safety concern vs. preventive | 2 pts |
+| 3 | Property type + size (commercial = high, large residential = standard) | 2 pts |
+| 4 | Ready to book? (today/this week = high, just quoting = low) | 2 pts |
+| 5 | Service history (new customer vs. returning) | 2 pts |
 
 **Total: 10 points**
 
@@ -48,7 +53,7 @@ demos/voice-agent/
 ├── server.py              # Flask webhook server + dashboard
 ├── vapi_setup.py          # Creates Vapi tools, assistant, phone number
 ├── prompts/
-│   └── system_prompt.txt  # Alex's personality + scoring rubric
+│   └── system_prompt.txt  # Maria's personality + scoring rubric
 ├── requirements.txt       # Python dependencies
 ├── .env.example           # Environment variable template
 └── .gitignore
@@ -59,7 +64,7 @@ demos/voice-agent/
 - **Python 3.9+**
 - **ngrok** — to expose your local server to the internet
 - **Vapi.ai account** — for the voice agent platform
-- **Resend account** — for sending nurture emails (optional)
+- **Resend account** — for sending quote emails (optional)
 
 ## Setup
 
@@ -82,7 +87,7 @@ pip install -r requirements.txt
 3. Copy your API key
 4. Add your **ElevenLabs API key** in Dashboard > Settings > Integrations (required for the voice)
 
-**Resend (for nurture emails):**
+**Resend (for quote emails):**
 1. Sign up at https://resend.com
 2. Go to **Dashboard > API Keys**
 3. Copy your API key
@@ -111,7 +116,7 @@ The server starts on **http://localhost:5002**. You should see:
 
 ```
 ============================================================
-  Westbrook & Associates — Voice Agent Webhook Server
+  Green Shield Pest Control — AI Receptionist Webhook Server
   Dashboard: http://localhost:5002
   Webhook:   http://localhost:5002/webhook/tools
 ============================================================
@@ -127,7 +132,7 @@ ngrok http 5002
 
 Copy the public URL (e.g. `https://abc123.ngrok-free.dev`). This is your webhook URL.
 
-> **Note:** If this is your first time using ngrok, you'll need to sign up at https://dashboard.ngrok.com and run `ngrok config add-authtoken YOUR_TOKEN` first.
+> **Note:** If this is your first time using ngrok, sign up at https://dashboard.ngrok.com and run `ngrok config add-authtoken YOUR_TOKEN` first.
 
 ### 6. Run Vapi setup
 
@@ -140,50 +145,30 @@ python vapi_setup.py setup
 
 When prompted, paste your ngrok URL. The script will:
 1. Create 4 tools (log_lead, check_availability, send_nurture_email, transfer_call)
-2. Create the assistant ("Alex") with Claude Sonnet, ElevenLabs voice, and Deepgram transcription
-3. Provision a phone number (830 area code)
-
-You'll see output like:
-
-```
-Creating tools...
-  Created tool 'log_lead': abc-123
-  Created tool 'check_availability': def-456
-  Created tool 'send_nurture_email': ghi-789
-  Created tool 'transfer_call': jkl-012
-
-Creating assistant...
-  Created assistant: mno-345
-
-Creating phone number...
-  Phone number: +18301234567
-
-============================================================
-  Setup complete!
-  Phone number: +18301234567
-============================================================
-```
+2. Create the assistant ("Maria") with Claude Sonnet, ElevenLabs voice, and Deepgram transcription
+3. Provision a phone number (830 area code — Texas)
 
 ### 7. Test it
 
-Call the phone number from your cell phone. Alex will answer and walk you through the qualification process.
+Call the phone number. Maria will answer and walk through the qualification.
 
 After the call, check the dashboard at **http://localhost:5002** to see the logged lead.
 
 ## Dashboard
 
-The web dashboard at `http://localhost:5002` displays all leads in a table with:
+The web dashboard at `http://localhost:5002` displays all leads with:
 
 - **Time** — when the call happened
 - **Name** — caller's name
-- **Case Type** — type of legal matter
+- **Pest Type** — type of pest problem
 - **Score** — qualification score (color-coded: green 7–10, yellow 4–6, red 1–3)
-- **Routing** — QUALIFIED / NURTURE / REDIRECT badge
+- **Routing** — HOT / WARM / COOL badge
+- **Status** — new / contacted / inspection_booked / scheduled / closed
 - **Phone** — caller's phone number
 - **Email** — email if captured
 - **Zip** — caller's zip code
 
-The dashboard auto-refreshes every 10 seconds. Summary stats are shown in the header.
+Auto-refreshes every 10 seconds. Summary stats shown in the header.
 
 ## API
 
@@ -195,62 +180,44 @@ Returns all leads as JSON, ordered by most recent first.
 curl http://localhost:5002/api/leads
 ```
 
-```json
-[
-  {
-    "id": 1,
-    "caller_name": "Maria",
-    "case_type": "personal injury",
-    "case_summary": "Car accident last week...",
-    "score": 9,
-    "routing": "qualified",
-    "email": "maria@example.com",
-    "zip_code": "78852",
-    "phone": "+18301234567",
-    "call_id": "abc-123",
-    "created_at": "2026-03-04T11:00:00"
-  }
-]
-```
-
-## Managing Vapi Resources
-
-```bash
-# View current config (assistant ID, phone number, tool IDs)
-python vapi_setup.py status
-
-# Delete all Vapi resources (tools, assistant, phone number)
-python vapi_setup.py teardown
-```
-
 ## Test Scenarios
 
-### Qualified Lead (Score 7–10)
-- Personal injury, car accident last week
-- First call, friend referral
-- Wants to act ASAP
-- Zip: 78852 (Eagle Pass, TX)
-- **Expected:** Consultation booked, green QUALIFIED badge
+### Hot Lead (Score 7–10)
+- Scorpion problem, found three in the living room this week
+- Has small children — urgent safety concern
+- 2,500 sq ft home in San Antonio, TX
+- Wants someone out today or tomorrow
+- **Expected:** Same-day inspection booked, green HOT badge
 
-### Nurture Lead (Score 4–6)
-- Considering divorce, separated 4 months
-- Spoke with one other attorney
-- Still figuring things out
-- Zip: 78840 (Del Rio, TX)
-- **Expected:** Email with resources sent, yellow NURTURE badge
+### Warm Lead (Score 4–6)
+- Seeing cockroaches occasionally in kitchen
+- Medium urgency, wants to compare prices first
+- Standard 3-bedroom home
+- **Expected:** Quote email sent, yellow WARM badge
 
-### Redirect (Score 1–3)
-- Landlord kept security deposit, 13 months ago
-- Two attorneys already declined
-- Not sure what to do
-- Zip: 75201 (Dallas, TX)
-- **Expected:** Referred to Legal Aid / small claims, red REDIRECT badge
+### Cool Lead (Score 1–3)
+- Saw one ant outside near the porch
+- Not really a problem yet, just curious
+- Just moved in, wants general info
+- **Expected:** Prevention tips provided, red COOL badge
+
+## Demo Talk Track (60–90 seconds)
+
+> "This is Maria — Green Shield Pest Control's AI receptionist. She answers every call, in English *and* Spanish, 24/7. Watch what happens when a customer calls about a scorpion problem..."
+>
+> [Make the call — Maria answers in English, switches to Spanish when the customer prefers]
+>
+> "She's qualifying the lead in real time — identifying the pest, assessing urgency, checking if they're ready to book. She scores this a 9 out of 10 — urgent, safety concern, ready to go — and books a same-day inspection."
+>
+> "Meanwhile, the dashboard here shows the new lead coming in live. Pest type, score, routing — everything the team needs to follow up."
+>
+> "No hold music. No missed calls. Every lead captured, qualified, and ready for your technicians."
 
 ## Tech Stack
 
 | Component | Service |
 |-----------|---------|
-| Voice Agent Platform | [Vapi.ai](https://vapi.ai) |
+| Voice Agent Platform | Vapi.ai |
 | AI Model | Claude Sonnet (Anthropic) |
 | Voice Synthesis | ElevenLabs |
 | Speech-to-Text | Deepgram Nova 2 |
@@ -268,10 +235,14 @@ Check the server logs for the full payload. Vapi sends tool call parameters unde
 Run `ngrok config add-authtoken YOUR_TOKEN` with your token from https://dashboard.ngrok.com/get-started/your-authtoken.
 
 ### No leads appearing on dashboard
-Make sure both the Flask server and ngrok are running before making a call. The ngrok URL must match what you provided during `vapi_setup.py setup`. If you restart ngrok (which gives a new URL), you'll need to re-run setup or update the server URL in the Vapi dashboard.
+Make sure both the Flask server and ngrok are running before making a call. If you restart ngrok (new URL), re-run `vapi_setup.py setup` or update the webhook URL in the Vapi dashboard.
 
-### Nurture emails not sending
-Verify your `RESEND_API_KEY` is set in `.env`. With the free Resend plan, you can only send to the email address you signed up with (use a verified domain for production).
+### Quote emails not sending
+Verify your `RESEND_API_KEY` is set in `.env`. Free Resend plan can only send to your signup email — use a verified domain for production.
 
-### Call connects but Alex doesn't speak
-Ensure your ElevenLabs API key is configured in the Vapi dashboard under Settings > Integrations.
+### Call connects but Maria doesn't speak
+Ensure your ElevenLabs API key is configured in Vapi dashboard under Settings > Integrations.
+
+---
+
+*Built by AXIOM Collective — Day 2 Showcase Demo*
